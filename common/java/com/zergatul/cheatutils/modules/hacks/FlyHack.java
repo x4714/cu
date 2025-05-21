@@ -40,27 +40,50 @@ public class FlyHack implements Module {
             return;
         }
         
-        tickCounter++;
-        if (tickCounter >= config.antiKickInterval) {
-            tickCounter = 0;
-            applyAntiKick(config);
-        }
+        doAntiKick(config);
     }
     
-    private void applyAntiKick(FlyHackConfig config) {
+    private void doAntiKick(FlyHackConfig config) {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) {
             return;
         }
         
-        double originalY = player.getY();
-        NetworkPacketsController.instance.sendPacket(
-            new ServerboundMovePlayerPacket.Pos(
-                player.getX(), 
-                originalY - config.antiKickDistance, 
-                player.getZ(), 
-                config.onGroundFlag
-            )
-        );
+        // Increment counter and reset if past interval
+        tickCounter++;
+        if (tickCounter > config.antiKickInterval + 1) {
+            tickCounter = 0;
+        }
+        
+        // Two-stage anti-kick: first down, then up
+        switch (tickCounter) {
+            case 0 -> {
+                // Don't do anti-kick if player is sneaking
+                if (Minecraft.getInstance().options.keyShift.isDown()) {
+                    tickCounter = 2; // Skip this cycle
+                } else {
+                    // Send down movement
+                    NetworkPacketsController.instance.sendPacket(
+                        new ServerboundMovePlayerPacket.Pos(
+                            player.getX(),
+                            player.getY() - config.antiKickDistance,
+                            player.getZ(),
+                            config.onGroundFlag
+                        )
+                    );
+                }
+            }
+            case 1 -> {
+                // Send up movement to counteract the down movement
+                NetworkPacketsController.instance.sendPacket(
+                    new ServerboundMovePlayerPacket.Pos(
+                        player.getX(),
+                        player.getY() + config.antiKickDistance,
+                        player.getZ(),
+                        config.onGroundFlag
+                    )
+                );
+            }
+        }
     }
 }
