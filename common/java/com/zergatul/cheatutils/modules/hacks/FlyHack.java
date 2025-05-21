@@ -6,6 +6,7 @@ import com.zergatul.cheatutils.configs.FlyHackConfig;
 import com.zergatul.cheatutils.controllers.NetworkPacketsController;
 import com.zergatul.cheatutils.accessors.ServerboundMovePlayerPacketAccessor;
 import com.zergatul.cheatutils.modules.Module;
+import com.zergatul.cheatutils.scripting.Root;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
