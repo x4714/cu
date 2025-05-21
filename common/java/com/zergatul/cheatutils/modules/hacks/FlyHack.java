@@ -59,8 +59,7 @@ public class FlyHack implements Module {
                 player.getX(), 
                 originalY - config.antiKickDistance, 
                 player.getZ(), 
-                config.onGroundFlag, 
-                false
+                config.onGroundFlag
             )
         );
     }
