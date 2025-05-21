@@ -9,7 +9,7 @@ public class FlyHackConfig extends ModuleConfig implements ValidatableConfig {
     public boolean onGroundFlag;
 
     // Anti-Kick settings
-    public boolean antiKickEnabled;
+    public boolean antiKick;
     public int antiKickInterval;
     public double antiKickDistance;
 
@@ -19,7 +19,7 @@ public class FlyHackConfig extends ModuleConfig implements ValidatableConfig {
         flyingSpeed = 0.05f;
         onGroundFlag = false;
 
-        antiKickEnabled = false;
+        antiKick = false;
         antiKickInterval = 30;
         antiKickDistance = 0.07;
     }

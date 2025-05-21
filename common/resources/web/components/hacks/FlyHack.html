@@ -34,12 +34,12 @@
 
         <fieldset>
             <legend>
-                <switch-checkbox v-model="config.antiKickEnabled" @change="update()">Anti-Kick</switch-checkbox>
+                <switch-checkbox v-model="config.antiKick" @change="update()">Anti-Kick</switch-checkbox>
             </legend>
             <div class="section-description">
                 Makes you fall a little bit every now and then to prevent you from getting kicked by some anti-cheats.
             </div>
-            <table v-if="config.antiKickEnabled">
+            <table v-if="config.antiKick">
                 <tbody>
                     <tr>
                         <td>

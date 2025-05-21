@@ -5,7 +5,6 @@ import com.zergatul.cheatutils.configs.*;
 import com.zergatul.cheatutils.controllers.PlayerMotionController;
 import com.zergatul.cheatutils.helpers.MixinLocalPlayerHelper;
 import com.zergatul.cheatutils.modules.hacks.ElytraFly;
-import com.zergatul.cheatutils.modules.hacks.FlyHack;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
@@ -44,7 +43,6 @@ public abstract class MixinLocalPlayer extends AbstractClientPlayer {
     @Inject(at = @At("HEAD"), method = "aiStep()V")
     private void onBeforeAiStep(CallbackInfo info) {
         MixinLocalPlayerHelper.insideAiStep = true;
-        // FlyHack.instance.updateAntiKickStateMachine() is called via Events.ClientTickStart
 
         FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
         if (config.enabled) {
@@ -52,19 +50,13 @@ public abstract class MixinLocalPlayer extends AbstractClientPlayer {
 
             oldFlying = player.getAbilities().flying;
             oldFlyingSpeed = player.getAbilities().getFlyingSpeed();
-            
-            if (FlyHack.instance.shouldApplyNormalFlyLogic(player, config)) {
-                // Normal FlyHack operation
-                player.getAbilities().flying = true; 
-                if (config.overrideFlyingSpeed) {
-                    player.getAbilities().setFlyingSpeed(config.flyingSpeed);
-                }
-            } else {
-                // Anti-kick is active, module controls motion and abilities.flying
-                FlyHack.instance.applyAntiKickMotionAndAbilities(player, config);
+
+            player.getAbilities().flying = true;
+            if (config.overrideFlyingSpeed) {
+                player.getAbilities().setFlyingSpeed(config.flyingSpeed);
             }
 
-            flyHackOverride = true; 
+            flyHackOverride = true;
         }
 
         ElytraFly.instance.onBeforeAiStep();
@@ -76,16 +68,8 @@ public abstract class MixinLocalPlayer extends AbstractClientPlayer {
 
         if (flyHackOverride) {
             LocalPlayer player = (LocalPlayer) (Object) this;
-            FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig; // Get config again
-
-            // Only restore abilities.flying if anti-kick is NOT currently overriding it
-            if (FlyHack.instance.shouldApplyNormalFlyLogic(player, config)) {
-                 player.getAbilities().flying = oldFlying;
-            }
-            // If anti-kick was active, abilities.flying was already set to false by applyAntiKickMotionAndAbilities
-            // and should remain false for this tick. oldFlying might have been true.
-
-            player.getAbilities().setFlyingSpeed(oldFlyingSpeed); // Always restore speed
+            player.getAbilities().flying = oldFlying;
+            player.getAbilities().setFlyingSpeed(oldFlyingSpeed);
             flyHackOverride = false;
         }
 
