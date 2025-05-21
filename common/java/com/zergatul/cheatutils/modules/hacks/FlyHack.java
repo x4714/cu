@@ -1,88 +1,94 @@
 package com.zergatul.cheatutils.modules.hacks;
 
+import com.zergatul.cheatutils.common.Events;
 import com.zergatul.cheatutils.configs.ConfigStore;
 import com.zergatul.cheatutils.configs.FlyHackConfig;
 import com.zergatul.cheatutils.controllers.NetworkPacketsController;
 import com.zergatul.cheatutils.accessors.ServerboundMovePlayerPacketAccessor;
 import com.zergatul.cheatutils.modules.Module;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.Vec3;
 
 public class FlyHack implements Module {
 
     public static final FlyHack instance = new FlyHack();
-    
-    private int tickCounter = 0;
+
+    private int antiKickTickCounter = 0;
+    private boolean isPerformingAntiKickDip = false;    // True during the downward motion tick
+    private boolean isAfterAntiKickDip = false;        // True for the tick immediately after the dip
 
     private FlyHack() {
         NetworkPacketsController.instance.addClientPacketHandler(this::onClientPacket);
+        Events.ClientTickStart.add(this::updateAntiKickState);
+        Events.ClientPlayerLoggingOut.add(this::resetAntiKickState);
+        Events.DimensionChange.add(this::resetAntiKickState);
+    }
+
+    private void resetAntiKickState() {
+        antiKickTickCounter = 0;
+        isPerformingAntiKickDip = false;
+        isAfterAntiKickDip = false;
+    }
+
+    private void updateAntiKickState() {
+        FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
+
+        // Reset flags from previous tick
+        if (isAfterAntiKickDip) {
+            isAfterAntiKickDip = false;
+        }
+        if (isPerformingAntiKickDip) {
+            isPerformingAntiKickDip = false; // Dip only lasts one tick
+            isAfterAntiKickDip = true;       // Next tick will be "after dip"
+        }
+
+        if (!config.enabled || !config.antiKickEnabled) {
+            antiKickTickCounter = 0;
+            return;
+        }
+
+        antiKickTickCounter++;
+
+        if (antiKickTickCounter >= config.antiKickInterval) {
+            isPerformingAntiKickDip = true; // Schedule dip for the current tick
+            antiKickTickCounter = 0;
+        }
+    }
+
+    // Called by MixinLocalPlayer.onBeforeAiStep
+    public boolean shouldBypassVanillaFlightLogic(LocalPlayer player, FlyHackConfig config) {
+        // If we are performing the dip or in the immediate recovery tick, bypass vanilla flight
+        return isPerformingAntiKickDip || isAfterAntiKickDip;
+    }
+    
+    public void applyAntiKickMotion(LocalPlayer player, FlyHackConfig config) {
+        if (isPerformingAntiKickDip) {
+            Vec3 currentVel = player.getDeltaMovement();
+            player.setDeltaMovement(currentVel.x, -config.antiKickDistance, currentVel.z);
+        }
+        // For isAfterAntiKickDip, no specific motion is applied here;
+        // vanilla gravity acts because abilities.flying is false.
+        // The onGround=true packet will be sent.
     }
 
     private void onClientPacket(NetworkPacketsController.ClientPacketArgs args) {
         if (args.packet instanceof ServerboundMovePlayerPacket packet) {
             FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
-            if (config.enabled) {
-                ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(config.onGroundFlag);
-            }
-        }
-    }
-    
-    public void onTick() {
-        FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
-        if (!config.enabled || !config.antiKick) {
-            tickCounter = 0;
-            return;
-        }
-        
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            return;
-        }
-        
-        doAntiKick(config);
-    }
-    
-    private void doAntiKick(FlyHackConfig config) {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            return;
-        }
-        
-        // Increment counter and reset if past interval
-        tickCounter++;
-        if (tickCounter > config.antiKickInterval + 1) {
-            tickCounter = 0;
-        }
-        
-        // Two-stage anti-kick: first down, then up
-        switch (tickCounter) {
-            case 0 -> {
-                // Don't do anti-kick if player is sneaking
-                if (Minecraft.getInstance().options.keyShift.isDown()) {
-                    tickCounter = 2; // Skip this cycle
-                } else {
-                    // Send down movement
-                    NetworkPacketsController.instance.sendPacket(
-                        new ServerboundMovePlayerPacket.Pos(
-                            player.getX(),
-                            player.getY() - config.antiKickDistance,
-                            player.getZ(),
-                            config.onGroundFlag
-                        )
-                    );
+            if (config.enabled) { // Only if FlyHack (the parent feature) is on
+                if (config.antiKickEnabled) { // And anti-kick is on
+                    if (isPerformingAntiKickDip) {
+                        // During the downward dip of anti-kick, set onGround to false.
+                        ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(false);
+                        return; // Anti-kick takes precedence for onGround flag this tick
+                    } else if (isAfterAntiKickDip) {
+                        // Tick immediately after the dip, simulate landing.
+                        ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(true);
+                        return; // Anti-kick takes precedence for onGround flag this tick
+                    }
                 }
-            }
-            case 1 -> {
-                // Send up movement to counteract the down movement
-                NetworkPacketsController.instance.sendPacket(
-                    new ServerboundMovePlayerPacket.Pos(
-                        player.getX(),
-                        player.getY() + config.antiKickDistance,
-                        player.getZ(),
-                        config.onGroundFlag
-                    )
-                );
+                // If not in an anti-kick maneuver, or anti-kick is off, use the general onGroundFlag.
+                ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(config.onGroundFlag);
             }
         }
     }

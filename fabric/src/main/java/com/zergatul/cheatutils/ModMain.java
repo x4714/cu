@@ -15,7 +15,6 @@ import com.zergatul.cheatutils.modules.utilities.RenderUtilities;
 import com.zergatul.cheatutils.modules.visuals.*;
 import com.zergatul.cheatutils.webui.ConfigHttpServer;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -93,12 +92,6 @@ public class ModMain implements ClientModInitializer {
         register(TickEndExecutor.instance);
 
         Events.RegisterKeyBindings.trigger(KeyBindingHelper::registerKeyBinding);
-        
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player != null) {
-                FlyHack.instance.onTick();
-            }
-        });
     }
 
     private void register(Module module) {

@@ -32,31 +32,33 @@
             </div>
         </fieldset>
 
-        <fieldset class="flex-column">
+        <fieldset>
             <legend>
-                <switch-checkbox v-model="config.antiKick" @change="update()">Anti-Kick</switch-checkbox>
+                <switch-checkbox v-model="config.antiKickEnabled" @change="update()">Anti-Kick</switch-checkbox>
             </legend>
             <div class="section-description">
-                Makes you fall a little bit every now and then to prevent you from getting kicked. Most servers will kick you if you don't move vertically for some time.
+                Makes you fall a little bit every now and then to prevent you from getting kicked by some anti-cheats.
             </div>
-            
-            <div class="flex-row mt-2">
-                <span class="field-description">Interval (ticks):</span>
-                <input type="range" min="5" max="80" step="1" v-model.number="config.antiKickInterval" @change="update()">
-                <span class="ml-2">{{ config.antiKickInterval }}</span>
-            </div>
-            <div class="section-description small">
-                How often Anti-Kick should prevent you from getting kicked. Most servers will kick you after 80 ticks (4 seconds).
-            </div>
-            
-            <div class="flex-row mt-2">
-                <span class="field-description">Distance (meters):</span>
-                <input type="range" min="0.01" max="0.2" step="0.001" v-model.number="config.antiKickDistance" @change="update()">
-                <span class="ml-2">{{ config.antiKickDistance.toFixed(3) }}m</span>
-            </div>
-            <div class="section-description small">
-                How far Anti-Kick should make you fall. Most servers require at least 0.032m to stop you from getting kicked.
-            </div>
+            <table v-if="config.antiKickEnabled">
+                <tbody>
+                    <tr>
+                        <td>
+                            <span class="field-description">Interval (ticks):</span>
+                        </td>
+                        <td>
+                            <input type="number" min="5" max="80" class="w4" v-model.number="config.antiKickInterval" @change="update()">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="field-description">Distance (blocks):</span>
+                        </td>
+                        <td>
+                            <input type="text" class="w4" v-model.number="config.antiKickDistance" @change="update()">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </fieldset>
     </div>
 </div>

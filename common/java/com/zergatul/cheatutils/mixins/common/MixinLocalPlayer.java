@@ -5,6 +5,7 @@ import com.zergatul.cheatutils.configs.*;
 import com.zergatul.cheatutils.controllers.PlayerMotionController;
 import com.zergatul.cheatutils.helpers.MixinLocalPlayerHelper;
 import com.zergatul.cheatutils.modules.hacks.ElytraFly;
+import com.zergatul.cheatutils.modules.hacks.FlyHack;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
@@ -50,10 +51,18 @@ public abstract class MixinLocalPlayer extends AbstractClientPlayer {
 
             oldFlying = player.getAbilities().flying;
             oldFlyingSpeed = player.getAbilities().getFlyingSpeed();
+            
+            boolean bypassVanillaFlight = FlyHack.instance.shouldBypassVanillaFlightLogic(player, config);
 
-            player.getAbilities().flying = true;
-            if (config.overrideFlyingSpeed) {
-                player.getAbilities().setFlyingSpeed(config.flyingSpeed);
+            if (bypassVanillaFlight) {
+                player.getAbilities().flying = false; // Ensure vanilla creative flight is off
+                FlyHack.instance.applyAntiKickMotion(player, config);
+            } else {
+                // Normal FlyHack operation (or if anti-kick is not active this tick)
+                player.getAbilities().flying = true; 
+                if (config.overrideFlyingSpeed) {
+                    player.getAbilities().setFlyingSpeed(config.flyingSpeed);
+                }
             }
 
             flyHackOverride = true;
