@@ -21,26 +21,26 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
 
-      - name: Build Annotation Processor
-        run: |
-          pushd ./mixin-plugin/annotation-processor
-          chmod +x ./gradlew
-          ./gradlew build
-          popd
+      # - name: Build Annotation Processor
+      #   run: |
+      #     pushd ./mixin-plugin/annotation-processor
+      #     chmod +x ./gradlew
+      #     ./gradlew build
+      #     popd
 
-      - name: Build Forge
-        run: |
-          pushd ./forge
-          chmod +x ./gradlew
-          ./gradlew build
-          popd
+      # - name: Build Forge
+      #   run: |
+      #     pushd ./forge
+      #     chmod +x ./gradlew
+      #     ./gradlew build
+      #     popd
 
-      - name: Build Fabric
-        run: |
-          pushd ./fabric
-          chmod +x ./gradlew
-          ./gradlew build
-          popd
+      # - name: Build Fabric
+      #   run: |
+      #     pushd ./fabric
+      #     chmod +x ./gradlew
+      #     ./gradlew build
+      #     popd
 
       - name: Build NeoForge
         run: |
@@ -49,21 +49,21 @@ jobs:
           ./gradlew build
           popd
 
-      - name: Upload Forge artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge
-          path: ./forge/build/libs/*.jar
-          compression-level: 0
-          if-no-files-found: error
+      # - name: Upload Forge artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: forge
+      #     path: ./forge/build/libs/*.jar
+      #     compression-level: 0
+      #     if-no-files-found: error
 
-      - name: Upload Fabric artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: fabric
-          path: ./fabric/build/libs/*.jar
-          compression-level: 0
-          if-no-files-found: error
+      # - name: Upload Fabric artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: fabric
+      #     path: ./fabric/build/libs/*.jar
+      #     compression-level: 0
+      #     if-no-files-found: error
 
       - name: Upload NeoForge artifacts
         uses: actions/upload-artifact@v4
