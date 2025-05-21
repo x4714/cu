@@ -14,9 +14,6 @@ public class FlyHack implements Module {
     public static final FlyHack instance = new FlyHack();
     
     private int tickCounter = 0;
-    private boolean shouldFall = false;
-    private boolean isFalling = false;
-    private double originalY;
 
     private FlyHack() {
         NetworkPacketsController.instance.addClientPacketHandler(this::onClientPacket);
@@ -35,19 +32,11 @@ public class FlyHack implements Module {
         FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
         if (!config.enabled || !config.antiKick) {
             tickCounter = 0;
-            shouldFall = false;
-            isFalling = false;
             return;
         }
         
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) {
-            return;
-        }
-        
-        if (isFalling) {
-            player.setPos(player.getX(), originalY, player.getZ());
-            isFalling = false;
             return;
         }
         
@@ -64,8 +53,15 @@ public class FlyHack implements Module {
             return;
         }
         
-        originalY = player.getY();
-        player.setPos(player.getX(), originalY - config.antiKickDistance, player.getZ());
-        isFalling = true;
+        double originalY = player.getY();
+        NetworkPacketsController.instance.sendPacket(
+            new ServerboundMovePlayerPacket.Pos(
+                player.getX(), 
+                originalY - config.antiKickDistance, 
+                player.getZ(), 
+                config.onGroundFlag, 
+                false
+            )
+        );
     }
 }
