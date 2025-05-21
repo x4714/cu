@@ -17,17 +17,17 @@ public class FlyHackConfig extends ModuleConfig implements ValidatableConfig {
         enabled = false;
         overrideFlyingSpeed = false;
         flyingSpeed = 0.05f;
-        onGroundFlag = false; // Default to false, can be true for NoFall-like behavior
+        onGroundFlag = false;
 
         antiKickEnabled = false;
-        antiKickInterval = 30; // Ticks, e.g., Wurst default
-        antiKickDistance = 0.07; // Blocks, e.g., Wurst default
+        antiKickInterval = 30;
+        antiKickDistance = 0.07;
     }
 
     @Override
     public void validate() {
         flyingSpeed = MathUtils.clamp(flyingSpeed, 0.001f, 10f);
-        antiKickInterval = MathUtils.clamp(antiKickInterval, 5, 80); // Example range
-        antiKickDistance = MathUtils.clamp(antiKickDistance, 0.01, 0.2); // Example range
+        antiKickInterval = MathUtils.clamp(antiKickInterval, 5, 80);
+        antiKickDistance = MathUtils.clamp(antiKickDistance, 0.01, 0.2);
     }
 }

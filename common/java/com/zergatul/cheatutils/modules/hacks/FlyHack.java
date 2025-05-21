@@ -6,6 +6,7 @@ import com.zergatul.cheatutils.configs.FlyHackConfig;
 import com.zergatul.cheatutils.controllers.NetworkPacketsController;
 import com.zergatul.cheatutils.accessors.ServerboundMovePlayerPacketAccessor;
 import com.zergatul.cheatutils.modules.Module;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.phys.Vec3;
@@ -13,81 +14,98 @@ import net.minecraft.world.phys.Vec3;
 public class FlyHack implements Module {
 
     public static final FlyHack instance = new FlyHack();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     private int antiKickTickCounter = 0;
-    private boolean isPerformingAntiKickDip = false;    // True during the downward motion tick
-    private boolean isAfterAntiKickDip = false;        // True for the tick immediately after the dip
+    private AntiKickPhase currentAntiKickPhase = AntiKickPhase.NONE;
+
+    private enum AntiKickPhase {
+        NONE,
+        DIP,      // Tick 0: Apply downward velocity
+        RECOVER   // Tick 1: Apply upward/neutral velocity (or let gravity act briefly)
+    }
 
     private FlyHack() {
         NetworkPacketsController.instance.addClientPacketHandler(this::onClientPacket);
-        Events.ClientTickStart.add(this::updateAntiKickState);
+        Events.ClientTickStart.add(this::updateAntiKickStateMachine);
         Events.ClientPlayerLoggingOut.add(this::resetAntiKickState);
         Events.DimensionChange.add(this::resetAntiKickState);
     }
 
     private void resetAntiKickState() {
         antiKickTickCounter = 0;
-        isPerformingAntiKickDip = false;
-        isAfterAntiKickDip = false;
+        currentAntiKickPhase = AntiKickPhase.NONE;
     }
 
-    private void updateAntiKickState() {
+    private void updateAntiKickStateMachine() {
         FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
 
-        // Reset flags from previous tick
-        if (isAfterAntiKickDip) {
-            isAfterAntiKickDip = false;
-        }
-        if (isPerformingAntiKickDip) {
-            isPerformingAntiKickDip = false; // Dip only lasts one tick
-            isAfterAntiKickDip = true;       // Next tick will be "after dip"
-        }
-
-        if (!config.enabled || !config.antiKickEnabled) {
-            antiKickTickCounter = 0;
+        if (!config.enabled || !config.antiKickEnabled || mc.player == null) {
+            resetAntiKickState();
             return;
         }
 
         antiKickTickCounter++;
 
-        if (antiKickTickCounter >= config.antiKickInterval) {
-            isPerformingAntiKickDip = true; // Schedule dip for the current tick
+        if (currentAntiKickPhase == AntiKickPhase.DIP) {
+            // Transition from DIP to RECOVER
+            currentAntiKickPhase = AntiKickPhase.RECOVER;
+        } else if (currentAntiKickPhase == AntiKickPhase.RECOVER) {
+            // Transition from RECOVER to NONE
+            currentAntiKickPhase = AntiKickPhase.NONE;
+        }
+        // If NONE, check if it's time to start a new anti-kick cycle
+        else if (antiKickTickCounter >= config.antiKickInterval) {
             antiKickTickCounter = 0;
+            if (mc.options.keyShift.isDown()) {
+                // If sneaking, skip this anti-kick attempt and wait for the next interval
+                // Effectively, we just reset the counter and remain in NONE phase
+            } else {
+                currentAntiKickPhase = AntiKickPhase.DIP;
+            }
         }
     }
 
     // Called by MixinLocalPlayer.onBeforeAiStep
-    public boolean shouldBypassVanillaFlightLogic(LocalPlayer player, FlyHackConfig config) {
-        // If we are performing the dip or in the immediate recovery tick, bypass vanilla flight
-        return isPerformingAntiKickDip || isAfterAntiKickDip;
-    }
-    
-    public void applyAntiKickMotion(LocalPlayer player, FlyHackConfig config) {
-        if (isPerformingAntiKickDip) {
-            Vec3 currentVel = player.getDeltaMovement();
-            player.setDeltaMovement(currentVel.x, -config.antiKickDistance, currentVel.z);
+    // Returns true if FlyHack's normal creative-like flight should be active
+    public boolean shouldApplyNormalFlyLogic(LocalPlayer player, FlyHackConfig config) {
+        if (!config.enabled) return false; // FlyHack disabled, let vanilla handle
+        if (config.antiKickEnabled && currentAntiKickPhase != AntiKickPhase.NONE) {
+            return false; // Anti-kick is active, it will control abilities.flying
         }
-        // For isAfterAntiKickDip, no specific motion is applied here;
-        // vanilla gravity acts because abilities.flying is false.
-        // The onGround=true packet will be sent.
+        return true; // Normal FlyHack operation
+    }
+
+    // Called by MixinLocalPlayer.onBeforeAiStep when shouldApplyNormalFlyLogic is false
+    public void applyAntiKickMotionAndAbilities(LocalPlayer player, FlyHackConfig config) {
+        player.getAbilities().flying = false; // Crucial: ensure flying is OFF for anti-kick
+
+        Vec3 currentVel = player.getDeltaMovement();
+        if (currentAntiKickPhase == AntiKickPhase.DIP) {
+            player.setDeltaMovement(currentVel.x, -config.antiKickDistance, currentVel.z);
+        } else if (currentAntiKickPhase == AntiKickPhase.RECOVER) {
+            // For Wurst-like recovery, apply a small upward or neutral impulse
+            // Or simply let gravity pull down for a tick if that's preferred for "landing"
+            // Here, we apply a slight upward push to counteract the dip.
+            player.setDeltaMovement(currentVel.x, config.antiKickDistance * 0.5, currentVel.z); // Smaller recovery
+            // Alternatively, to let gravity act more naturally for a "touch ground" feel:
+            // player.setDeltaMovement(currentVel.x, 0, currentVel.z); // Then rely on onGround=true packet
+        }
     }
 
     private void onClientPacket(NetworkPacketsController.ClientPacketArgs args) {
         if (args.packet instanceof ServerboundMovePlayerPacket packet) {
             FlyHackConfig config = ConfigStore.instance.getConfig().flyHackConfig;
-            if (config.enabled) { // Only if FlyHack (the parent feature) is on
-                if (config.antiKickEnabled) { // And anti-kick is on
-                    if (isPerformingAntiKickDip) {
-                        // During the downward dip of anti-kick, set onGround to false.
+            if (config.enabled) {
+                if (config.antiKickEnabled) {
+                    if (currentAntiKickPhase == AntiKickPhase.DIP) {
                         ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(false);
-                        return; // Anti-kick takes precedence for onGround flag this tick
-                    } else if (isAfterAntiKickDip) {
-                        // Tick immediately after the dip, simulate landing.
-                        ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(true);
-                        return; // Anti-kick takes precedence for onGround flag this tick
+                        return;
+                    } else if (currentAntiKickPhase == AntiKickPhase.RECOVER) {
+                        ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(true); // Simulate landing
+                        return;
                     }
                 }
-                // If not in an anti-kick maneuver, or anti-kick is off, use the general onGroundFlag.
                 ((ServerboundMovePlayerPacketAccessor) packet).setOnGround_CU(config.onGroundFlag);
             }
         }
