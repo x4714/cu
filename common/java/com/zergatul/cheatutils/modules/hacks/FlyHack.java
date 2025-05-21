@@ -66,6 +66,7 @@ public class FlyHack implements Module {
                     player.getY() - config.antiKickDistance,
                     player.getZ(),
                     config.onGroundFlag);
+            Root.ui.systemMessage("Sending anti kick packet");
             NetworkPacketsController.instance.sendPacket(antiKickPacket);
         }
     }
